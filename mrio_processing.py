@@ -84,6 +84,7 @@ exio3.emp_gender.unit = exio3.emp_gender.unit.iloc[0:2, :]  # Keep only the firs
 exio3.emp_gender.unit.index = exio3.emp_gender.F.index  # Set the index of the unit to match the employment stressor index
 
 
+
 # TODO: Need to decide whather to handle all six employment categories or just the two genders
 
 
@@ -119,23 +120,6 @@ for i in range(0,2):
 #     print(str(exio3.emp[i]))
 
 
-# # Regional aggregation of the D_cba, D_pba, D_imp, D_exp matrices
-# exio3.emp_male = exio3.emp[0].copy()  # Start with the first employment category as a base for aggregation
-# exio3.emp_female = exio3.emp[0].copy()  # Start with the first employment category as a base for aggregation
-# exio3.emp_male.name = "Aggregated Male Employment Stressor"
-# exio3.emp_female.name = "Aggregated Female Employment Stressor"
-# for i in range(0,6,2):
-#     # for cat in ['D_cba', 'D_pba', 'D_imp', 'D_exp']:
-#     exio3.emp_male.D_cba += exio3.emp[i].D_cba
-#     exio3.emp_female.D_cba += exio3.emp[i+1].D_cba
-#     exio3.emp_male.D_pba += exio3.emp[i].D_pba
-#     exio3.emp_female.D_pba += exio3.emp[i+1].D_pba
-#     exio3.emp_male.D_imp += exio3.emp[i].D_imp
-#     exio3.emp_female.D_imp += exio3.emp[i+1].D_imp
-#     exio3.emp_male.D_exp += exio3.emp[i].D_exp
-#     exio3.emp_female.D_exp += exio3.emp[i+1].D_exp
-#     print(f"Regional aggregation for category {i}: {exio3.emp[i].name}")
-
 print(exio3.emp[0].D_cba) # Impact of individual sectors and country/region
 print(exio3.emp[0].D_cba_reg) # Sum by country/region
 
@@ -143,8 +127,8 @@ print(exio3.emp[0].D_cba_reg) # Sum by country/region
 # Impact plots
 for i in range(0,2):
     # exio3.emp[i].plot_account(row=('WF', 'Vegetables, fruit, nuts'))
-    exio3.emp[i].plot_account(row=('CN', 'Vegetables, fruit, nuts'))
-    exio3.emp[i].plot_account(row=('CN', svc_sectors.values[0]))
+    exio3.emp[i].plot_account(row=('US', 'Vegetables, fruit, nuts'))
+    exio3.emp[i].plot_account(row=('US', svc_sectors.values[0]))
     # exio3.emp[i].plot_account(row=('US', 'Vegetables, fruit, nuts'))
 
     # print(f"Plotting D_cba for {exio3.emp[i].D_cba.loc[row]}")
@@ -160,28 +144,9 @@ Y_food_HH = Y_food.loc[:, Y_food.columns.get_level_values('category').isin(['Fin
 
 
 
-
-
-# Attempt to replicate the calculation of D_cba
-# This diagonalization was the key 
-# => https://github.com/IndEcol/pymrio/blob/aa3a67a5d4900595a270dac9423efbb82cdf79fd/pymrio/tools/ioutil.py#L245
-# D_cba comes out 9800x9800
-# # Get row sum of food final demand 
-# Y_food_sum = Y_food.sum(axis=1)
-# # Multiply exio3.M by diagonal matrix of Y_food_sum
-# # Get diagonalized matrix of Y_food_sum
-# import numpy as np
-# Y_food_sum_d = np.diag(Y_food_sum.values)
-# my_M = exio3.emp[0].S @ exio3.L  # identical to exio3.emp[0].M
-# dcba1 = exio3.emp[0].M @ Y_food_sum_d   # M*Y
-# dcba2 = exio3.emp[0].S @ np.diag(exio3.x.values) # S*X
-
-
-
-
 # Get the distribution of values in the cells of exio3.emp[0].D_cba
 import numpy as np
-mat = Y_fd
+mat = exio3.emp[0].D_exp
 values = mat.values.flatten()
 # Calculate the distribution of values
 values_distribution = np.histogram(values, bins=100)
@@ -201,7 +166,7 @@ mat.index[max_index[0]], mat.columns[max_index[1]]
 # Visualize
 import matplotlib.pyplot as plt
 
-m = Y_fd #.loc[:, Y_fd.columns.get_level_values('region').isin(["WF"])]
+m = exio3.emp[0].D_imp #.loc[:, Y_fd.columns.get_level_values('region').isin(["WF"])]
 plt.figure(figsize=(15, 15))
 plt.imshow(m)
 plt.colorbar()
@@ -251,19 +216,3 @@ dL_ord = dL_df.reindex(index=exio3.A.index, columns=exio3.A.columns)
 
 # Calculate the delta x using the new dL matrix
 dx = dL_ord @ exio3.Y
-
-# delete L_food
-
-
-# Food effects on employment (All economy, High-skilled)
-M_food = []
-M_food.append(pymrio.calc_M(exio3.emp[0].S, dL_ord))
-M_food.append(pymrio.calc_M(exio3.emp[1].S, dL_ord))
-# It appears that this calc_M and calc_e are not automatically generating D_xx outputs.
-
-
-
-# print(Y_food.index)
-# set all row values to zero for 'sector' name match foodsectors
-# Y_food.loc[~Y_food.index.get_level_values('sector').isin(foodsectors), :] = 0
-# print(Y_food.head())
