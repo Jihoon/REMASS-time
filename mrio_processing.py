@@ -146,7 +146,7 @@ Y_food_HH = Y_food.loc[:, Y_food.columns.get_level_values('category').isin(['Fin
 
 # Get the distribution of values in the cells of exio3.emp[0].D_cba
 import numpy as np
-mat = exio3.emp[0].D_exp
+mat = exio3.emp[0].D_imp_reg
 values = mat.values.flatten()
 # Calculate the distribution of values
 values_distribution = np.histogram(values, bins=100)
@@ -175,7 +175,46 @@ plt.ylabel("Countries - M.hours")
 plt.show()
 
 
+# Sankey
+import plotly.graph_objects as go
 
+# Example Sankey diagram for employment impacts (D_imp) by region and sector
+mat = exio3.emp[0].D_imp_reg
+
+sectors = mat.index.tolist()
+regions = mat.columns.tolist()
+values = mat.values.flatten()
+
+# Create source and target indices for Sankey
+sources = []
+targets = []
+sankey_values = []
+
+for j, region in enumerate(regions):
+    for i, sector in enumerate(sectors):
+        val = mat.iloc[i, j]
+        if val > 0:
+            sources.append(i)
+            targets.append(len(regions) + j)
+            sankey_values.append(val)
+
+labels = regions + sectors
+
+fig = go.Figure(data=[go.Sankey(
+    node=dict(
+        pad=15,
+        thickness=20,
+        line=dict(color="black", width=0.5),
+        label=labels,
+    ),
+    link=dict(
+        source=sources,
+        target=targets,
+        value=sankey_values,
+    ))])
+
+fig.update_layout(title_text="Employment Impact Sankey Diagram", font_size=10)
+fig.show()
 
 
 
