@@ -106,3 +106,26 @@ def get_Y_agg(Y, keep=None):
 
     # Y_diag = ioutil.diagonalize_columns_to_sectors(Y_agg)
     return Y_agg, Y_T
+
+
+def LoadEXIOBASE3(year=2022, system="pxp"):
+    """
+    Loads the EXIOBASE3 dataset for the specified year and system.
+    Returns an instance of the EXIOBASE3 class with the loaded data.
+    """
+    import pymrio
+    from pathlib import Path
+
+    exio3_folder = "H:\MyDocuments\Data\EXIOBASE3"
+
+    fn = "IOT_" + str(year) + "_pxp.zip"
+    p = Path(exio3_folder) / fn
+    print(p.exists())
+
+    exio3 = pymrio.parse_exiobase3(path=p)
+    exio3.calc_system() # This generates all including L.
+
+    # Look at the metadata of the EXIOBASE3 system
+    print(exio3.meta)
+    
+    return exio3
