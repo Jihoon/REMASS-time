@@ -10,10 +10,13 @@ def DrawSankey(mat, title, filename):
     """
     import plotly.graph_objects as go
 
+    mat = mat.groupby(['region', 'gender'], sort=False).sum()
+    # mat_sex = mat.groupby(['gender'], sort=False).sum()
+
     src_regs = mat.index.get_level_values('region').unique().tolist()
     genders = mat.index.get_level_values('gender').unique().tolist()
     tgt_regs = mat.columns.tolist()
-    values = mat.values.flatten()
+    # values = mat.values.flatten()
 
     # Create source and target indices for Sankey
     sources = []
@@ -21,14 +24,19 @@ def DrawSankey(mat, title, filename):
     sankey_values = []
 
     for i, region in enumerate(src_regs):
-        for j, sector in enumerate(tgt_regs):
-            val = mat.iloc[i, j]
-            if val > 0:
-                sources.append(i)
-                targets.append(len(src_regs) + j)
-                sankey_values.append(val)
+        for g, gender in enumerate(genders):
+            for j, sector in enumerate(tgt_regs):
+                # val = mat.iloc[i+g*len(src_regs), j]
+                val = mat.loc[(region, gender), sector]
+                if val > 0:
+                    sources.append(i)
+                    targets.append(len(src_regs) + g)
+                    sankey_values.append(val)
+                    sources.append(len(src_regs) + g)
+                    targets.append(len(src_regs)+len(genders) + j)
+                    sankey_values.append(val)
 
-    labels = src_regs + tgt_regs
+    labels = src_regs + genders + tgt_regs
 
     fig = go.Figure(data=[go.Sankey(
         node=dict(
@@ -46,6 +54,8 @@ def DrawSankey(mat, title, filename):
     fig.update_layout(title_text=title, font_size=10)
     fig.show()
     fig.write_image(filename)
+
+    return fig
 
 
 

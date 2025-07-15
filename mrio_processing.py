@@ -114,21 +114,30 @@ hr_m_imp = exio3.emp[1].D_imp_reg
 hr_m_all = exio3.emp[1].D_cba_reg
 
 # Regional sum of employment impacts (9800 is too much)
-mat_all = hr_f_all.groupby(hr_f_all.index.get_level_values('region')).sum()
+# mat_all = hr_f_all.groupby(hr_f_all.index.get_level_values('region')).sum()
 
 import postprocess as pp
-mat = hr_m_imp.groupby(hr_m_imp.index.get_level_values('region')).sum()
-pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Male)", filename="output/region-region M.png")
-mat = hr_f_imp.groupby(hr_f_imp.index.get_level_values('region')).sum()
-pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Female)", filename="output/region-region F.png")
+# mat = hr_m_imp.groupby('region').sum()
+# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Male)", filename="output/region-region M.png")
+# mat = hr_f_imp.groupby('region').sum()
+# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Female)", filename="output/region-region F.png")
 
 # Add a gender column to the employment impacts
 hr_f_imp['gender'] = 'Female'
 hr_m_imp['gender'] = 'Male'
 # Combine the two DataFrames
 hr_imp = pd.concat([hr_f_imp, hr_m_imp]).set_index(['gender'], append=True)
+fig = pp.DrawSankey(hr_imp, 
+                    title="Employment hours by Region and Gender (M.hrs)", 
+                    filename="output/region-gender.png")
 
+from dash import Dash, dcc, html
+app = Dash()
+app.layout = html.Div([
+    dcc.Graph(figure=fig)
+])
 
+app.run(debug=True, use_reloader=True)  # Turn off reloader if inside Jupyter
 
 
 
