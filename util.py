@@ -108,7 +108,7 @@ def get_Y_agg(Y, keep=None):
     return Y_agg, Y_T
 
 
-def LoadEXIOBASE3(year=2022, system="pxp"):
+def load_EXIOBASE3(year=2022, system="pxp"):
     """
     Loads the EXIOBASE3 dataset for the specified year and system.
     Returns an instance of the EXIOBASE3 class with the loaded data.
@@ -129,3 +129,107 @@ def LoadEXIOBASE3(year=2022, system="pxp"):
     print(exio3.meta)
     
     return exio3
+
+
+def get_population(reg, year=2022):
+    """
+    Handles the population data for the specified regions and year.
+    Returns a DataFrame with the population data.
+    """
+    import pycountry
+    import world_bank_data as wb
+    import pandas as pd
+
+    pop_df = wb.get_series('SP.POP.TOTL', date='1995:2022', id_or_value='id', simplify_index=True)
+    # Rename columns for clarity
+    pop_df = pop_df.reset_index()
+    # Convert the index to a DataFrame
+    pop_df = pop_df.rename(columns={'Country':'iso3', 'SP.POP.TOTL':'Population'})
+    # Change 'Year' type to number  
+    pop_df['Year'] = pd.to_numeric(pop_df['Year'], errors='coerce')
+
+    # Read 'EXIO-regions.csv' to get the country names and ISO codes
+    exio_regions = pd.read_csv('H:/MyDocuments/Data/EXIOBASE3/EXIO-regions.csv', index_col=0).reset_index()
+
+    # Convert ISO3 to ISO2 codes using pycountry
+    def iso2_from_iso3(iso3):
+        try:
+            return pycountry.countries.get(alpha_3=iso3).alpha_2
+        except:
+            return None
+        
+    def iso2_to_continent(country_alpha2):
+        import pycountry_convert as pc
+
+        # Some small countries may not have a continent code
+        try:
+            country_continent_code = pc.country_alpha2_to_continent_code(country_alpha2)
+        except:
+            return None
+        
+        country_continent_name = pc.convert_continent_code_to_continent_name(country_continent_code)
+        return country_continent_name
+
+    pop_df['iso2'] = pop_df['iso3'].apply(iso2_from_iso3)
+    # Filter out rows where ISO2 is None
+    pop_df = pop_df[pop_df['iso2'].notna()]
+    # Add country name column to pop_df
+    pop_df['country_name'] = pop_df['iso3'].apply(lambda x: pycountry.countries.get(alpha_3=x).name if pycountry.countries.get(alpha_3=x) else None)
+    pop_df['continent_py'] = pop_df['iso2'].apply(iso2_to_continent)
+
+
+    # Merge the population data with the EXIO regions based on iso2 codes
+    popul = pop_df.merge(exio_regions, on='iso2', how='left')
+
+    def exio_region_from_continent(continent):
+        import pandas as pd
+        if pd.isna(continent):
+            return None
+        continent = continent.lower()
+        if 'asia' in continent:
+            return 'WA'
+        elif 'africa' in continent:
+            return 'WF'
+        elif 'europe' in continent:
+            return 'WE'
+        elif 'america' in continent:
+            return 'WL'
+        elif 'oceania' in continent:
+            return 'WA'
+        elif 'middle east' in continent:
+            return 'WM'
+        else:
+            return None
+
+    popul['Exiobase region code'] = popul['Exiobase region code'].fillna(
+        popul['continent_py'].apply(exio_region_from_continent)
+    )
+
+    # if iso2 is one of these, then 'Exiobase region code'='WM' (Remove Malta)
+    # https://wits.worldbank.org/chatbot/SearchItem.aspx?RegionId=MEA 
+    popul.loc[popul['iso2'].isin(['AE', 'BH', 'DJ', 
+                                #   'DZ', 'EG', 
+                                'IR', 'IQ', 'IL', 'JO', 'KW', 'LB', 
+                                #   'LY', 'MA', 
+                                'OM', 'QA', 'SA', 'SY', 
+                                #   'TN', 
+                                'YE']),
+            'Exiobase region code'] = 'WM'
+
+    # Sum the population by Exiobase region code and year
+    popul_sum = popul.groupby(['Exiobase region code', 'Year']).agg({'Population': 'sum'}).reset_index().rename(columns={'Exiobase region code':'Region'})
+
+    # Manually append 'Taiwan-populaton.csv' to popul_sum 
+    # https://www.macrotrends.net/global-metrics/countries/twn/taiwan/population
+    taiwan_popul = pd.read_csv('H:/MyDocuments/Data/EXIOBASE3/Taiwan-population.csv')
+    popul_sum = pd.concat([popul_sum, taiwan_popul], ignore_index=True)
+
+    # Put popul_sum regions in the same order as reg
+    popul_sum['Region'] = pd.Categorical(popul_sum['Region'], categories=reg, ordered=True)
+    # Sort the DataFrame by 'Region' and 'Year'
+    popul_sum = popul_sum.sort_values(by=['Region', 'Year']).reset_index(drop=True)
+
+    # Return the final DataFrame with population data for the given year
+    popul_out = popul_sum[popul_sum['Year'] == year].drop(columns=['Year']).reset_index(drop=True)
+    return popul_out
+

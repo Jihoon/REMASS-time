@@ -19,7 +19,7 @@ exio_downloadlog = pymrio.download_exiobase3(
 
 
 ## Load EXIOBASE3 data
-exio3 = util.LoadEXIOBASE3(year=2022, system="pxp")
+exio3 = util.load_EXIOBASE3(year=2022, system="pxp")
 
 
 ## Sector indices for agriculture, processing, and food services
@@ -86,6 +86,7 @@ exio3.emp_gender.unit.index = exio3.emp_gender.F.index  # Set the index of the u
 ## Add employment stressors for the 2 gender categories
 exio3.emp = []
 emp_ind = exio3.emp_gender.get_index()
+popvec = util.get_population(reg, year=2022)['Population'].values/ 1e6  # Convert to millions for easier handling
 
 # Calculate the employment stressors and impacts (D_xx) for each gender labor hours (Entire economy)
 # Note: This gives a memory error if I do all six labor categories at once.
@@ -93,7 +94,9 @@ for i in range(0,2):
     exio3.emp.append(exio3.emp_gender.diag_stressor(emp_ind[i], name=emp_ind[i]))   
     print(f"Created employment stressor for category {i}: {emp_ind[i]}")
     # exio3.emp[i].calc_system(exio3.x, Y=Y_food) # Without L and F_Y, this generates only the S matrix.
-    exio3.emp[i].calc_system(exio3.x, Y=Y_food, Y_agg=Y_fd , L=exio3.L) 
+    exio3.emp[i].calc_system(exio3.x, Y=Y_food, Y_agg=Y_fd , 
+                             L=exio3.L, 
+                             population=popvec) 
     
     # Re: calc_system
     # Without L and F_Y, calc_system() generates only the S matrix.    
@@ -176,3 +179,8 @@ dL_ord = dL_df.reindex(index=exio3.A.index, columns=exio3.A.columns)
 
 # Calculate the delta x using the new dL matrix
 dx = dL_ord @ exio3.Y
+
+
+
+## Per-capita employment hours
+pop = util.get_population(reg, year=2022)   
