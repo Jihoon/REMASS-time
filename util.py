@@ -217,7 +217,7 @@ def get_population(reg, year=2022):
             'Exiobase region code'] = 'WM'
 
     # Sum the population by Exiobase region code and year
-    popul_sum = popul.groupby(['Exiobase region code', 'Year']).agg({'Population': 'sum'}).reset_index().rename(columns={'Exiobase region code':'Region'})
+    popul_sum = popul.groupby(['Exiobase region code', 'Year']).agg({'Population': 'sum'}).reset_index().rename(columns={'Exiobase region code':'region'})
 
     # Manually append 'Taiwan-populaton.csv' to popul_sum 
     # https://www.macrotrends.net/global-metrics/countries/twn/taiwan/population
@@ -225,11 +225,11 @@ def get_population(reg, year=2022):
     popul_sum = pd.concat([popul_sum, taiwan_popul], ignore_index=True)
 
     # Put popul_sum regions in the same order as reg
-    popul_sum['Region'] = pd.Categorical(popul_sum['Region'], categories=reg, ordered=True)
-    # Sort the DataFrame by 'Region' and 'Year'
-    popul_sum = popul_sum.sort_values(by=['Region', 'Year']).reset_index(drop=True)
+    popul_sum['region'] = pd.Categorical(popul_sum['region'], categories=reg, ordered=True)
+    # Sort the DataFrame by 'region' and 'Year'
+    popul_sum = popul_sum.sort_values(by=['region', 'Year']).reset_index(drop=True)
 
     # Return the final DataFrame with population data for the given year
-    popul_out = popul_sum[popul_sum['Year'] == year].drop(columns=['Year']).reset_index(drop=True)
+    popul_out = popul_sum[popul_sum['Year'] == year].drop(columns=['Year']).set_index('region', drop=True)
     return popul_out
 

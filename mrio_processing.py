@@ -1,6 +1,7 @@
 import pymrio
 import util
 import pandas as pd
+import numpy as np
 
 
 ## show version of pymrio
@@ -86,7 +87,8 @@ exio3.emp_gender.unit.index = exio3.emp_gender.F.index  # Set the index of the u
 ## Add employment stressors for the 2 gender categories
 exio3.emp = []
 emp_ind = exio3.emp_gender.get_index()
-popvec = util.get_population(reg, year=2022)['Population'].values/ 1e6  # Convert to millions for easier handling
+popvec = util.get_population(reg, year=2022).T/ 1e6  # Convert to millions for easier handling
+
 
 # Calculate the employment stressors and impacts (D_xx) for each gender labor hours (Entire economy)
 # Note: This gives a memory error if I do all six labor categories at once.
