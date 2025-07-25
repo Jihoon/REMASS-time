@@ -106,26 +106,52 @@ for i in range(0,2):
     
     print(exio3.emp[i].name)
     print(str(exio3.emp[i]))
+
 # => Without Y_agg explicitly given, calc_system aggregates the given Y=Y_food across fd categories 
 # and diagonalizes it to a square Y with 'diagonalize_columns_to_sectors(Y_agg)'.
+# => D_xx_cap is per capita employment hours, which is the total employment hours divided by the population of the final consumption regions.
+# I need hours per capita in exporting regions.
+
+# Test: Calculate the per capita employment hours in the production regions
+pop_inv = np.diag(1/popvec.values.flatten()) 
+pop_inv = pd.DataFrame(np.repeat(pop_inv, 200, axis=1), index=reg, columns=exio3.emp[0].D_cba_reg.index)
+# pop_inv = pd.DataFrame(np.tile(pop_inv, (1, 200)), index=reg, columns=exio3.emp[0].D_cba_reg.index)
+# pop_inv = pd.DataFrame(np.tile(pop_inv, (1, 1)), index=reg, columns=reg)
+imp_cap = pop_inv @ exio3.emp[0].D_imp_reg
+imp_all = pop_inv @ exio3.emp[0].D_imp
+# Values making sense? e.g., WE too large
+c=imp_cap.groupby('region', sort=False).sum()
+# pop_inv @ b
+b=exio3.emp[0].D_cba_cap2
+# b=exio3.emp[0].D_cba_cap2.groupby('region', sort=False).sum()
+b.sum(axis=1)  # This is the time spent for provisioning food for other countries. [hr/capita/year]
+
+
+# # Validate EU populations
+# # partial sum of EU populations. keep only the numeric values
+# pop_df_numeric = pop_df.select_dtypes(include=[np.number])
+# a = pop_df_numeric.groupby(['Year', 'continent_py']).sum()
+# a=pop_df.groupby(['Year', 'continent_py']).sum().select_dtypes(include=[np.number])  # This is the population in millions
 
 
 ## Sankey diagram for employment impacts
 
 # Example Sankey diagram for employment impacts (D_imp) by region and sector
-hr_f_imp = exio3.emp[0].D_imp_reg
-hr_f_all = exio3.emp[0].D_cba_reg
-hr_m_imp = exio3.emp[1].D_imp_reg
-hr_m_all = exio3.emp[1].D_cba_reg
+hr_f_imp = exio3.emp[0].D_imp_reg.copy()
+# hr_f_all = exio3.emp[0].D_cba_reg.copy()
+hr_m_imp = exio3.emp[1].D_imp_reg.copy()
+# hr_m_all = exio3.emp[1].D_cba_reg.copy()
 
 # Regional sum of employment impacts (9800 is too much)
 # mat_all = hr_f_all.groupby(hr_f_all.index.get_level_values('region')).sum()
 
 import postprocess as pp
 # mat = hr_m_imp.groupby('region').sum()
-# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Male)", filename="output/region-region M.png")
+# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Male)", 
+# filename="output/region-region M.png")
 # mat = hr_f_imp.groupby('region').sum()
-# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Female)", filename="output/region-region F.png")
+# pp.DrawSankey(mat, title="Employment Impact by Region and Sector (Female)", 
+# filename="output/region-region F.png")
 
 # Add a gender column to the employment impacts
 hr_f_imp['gender'] = 'Female'
@@ -146,6 +172,25 @@ app.run(debug=True, use_reloader=True)  # Turn off reloader if inside Jupyter
 
 
 
+## Aggregation attempt
+
+# Sectoral
+sector_matrix = np.zeros((4, len(sec)), dtype=int)
+sector_matrix[0, agri_ind] = 1
+sector_matrix[1, proc_ind] = 1
+sector_matrix[2, svc_ind] = 1
+covered = set(agri_ind + proc_ind + svc_ind)
+sector_matrix[3, [i for i in range(len(sec)) if i not in covered]] = 1
+sec_names = ['Food growth', 'Food processing', 'Food services', 'Non-food sectors']
+
+exio3_sect_agg = exio3.aggregate(
+    sector_agg=sector_matrix,
+    sector_names=sec_names,
+    inplace=False)
+
+
+
+## HEM attempt
 
 # Note: I tried to adopt the idea of Rasul et al. (2024) to partition the matrix and create the HEM matrices.
 # However, I found that the EROEI idea may not direactly be applicable to my case, as I am not calculating the EROEI but rather the labor going into the final consumption of food. 
@@ -182,7 +227,3 @@ dL_ord = dL_df.reindex(index=exio3.A.index, columns=exio3.A.columns)
 # Calculate the delta x using the new dL matrix
 dx = dL_ord @ exio3.Y
 
-
-
-## Per-capita employment hours
-pop = util.get_population(reg, year=2022)   
