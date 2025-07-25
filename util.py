@@ -139,8 +139,10 @@ def get_population(reg, year=2022):
     import pycountry
     import world_bank_data as wb
     import pandas as pd
+    import country_converter as coco
 
-    pop_df = wb.get_series('SP.POP.TOTL', date='1995:2022', id_or_value='id', simplify_index=True)
+    pop_df = wb.get_series('SP.POP.TOTL', date='1995:2022', 
+                           id_or_value='id', simplify_index=True)
     # Rename columns for clarity
     pop_df = pop_df.reset_index()
     # Convert the index to a DataFrame
@@ -149,75 +151,95 @@ def get_population(reg, year=2022):
     pop_df['Year'] = pd.to_numeric(pop_df['Year'], errors='coerce')
 
     # Read 'EXIO-regions.csv' to get the country names and ISO codes
-    exio_regions = pd.read_csv('H:/MyDocuments/Data/EXIOBASE3/EXIO-regions.csv', index_col=0).reset_index()
+    # exio_regions = pd.read_csv('H:/MyDocuments/Data/EXIOBASE3/EXIO-regions.csv', 
+    # index_col=0) \
+    # .reset_index()
+    exio_regions = pd.read_excel('H:/MyDocuments/Data/EXIOBASE3/EXIOBASE regions.xlsx', 
+                                 sheet_name='Classification', index_col=False) \
+        .reset_index(drop=True)
+    exio_WX_regions = pd.read_excel('H:/MyDocuments/Data/EXIOBASE3/EXIOBASE regions.xlsx', 
+                                 sheet_name='Rest of the World regions ISO3', index_col=False) \
+        .reset_index(drop=True)
+    
+    # Add new rows to exio_regions based on exio_WX_regions
+    wx_cols = [col for col in exio_WX_regions.columns if col.startswith('W')]
+    wx_rows = []
 
-    # Convert ISO3 to ISO2 codes using pycountry
-    def iso2_from_iso3(iso3):
-        try:
-            return pycountry.countries.get(alpha_3=iso3).alpha_2
-        except:
-            return None
+    for col in wx_cols:
+        for iso3 in exio_WX_regions[col].dropna():
+            wx_rows.append({'region': col, 'region ISO3': iso3})
+    exio_regions = pd.concat([exio_regions, pd.DataFrame(wx_rows)], ignore_index=True)
+
+    # # Convert ISO3 to ISO2 codes using pycountry
+    # def iso2_from_iso3(iso3):
+    #     try:
+    #         return pycountry.countries.get(alpha_3=iso3).alpha_2
+    #     except:
+    #         return None
         
-    def iso2_to_continent(country_alpha2):
-        import pycountry_convert as pc
+    # def iso2_to_continent(country_alpha2):
+    #     import pycountry_convert as pc
 
-        # Some small countries may not have a continent code
-        try:
-            country_continent_code = pc.country_alpha2_to_continent_code(country_alpha2)
-        except:
-            return None
+    #     # Some small countries may not have a continent code
+    #     try:
+    #         country_continent_code = pc.country_alpha2_to_continent_code(country_alpha2)
+    #     except:
+    #         return None
         
-        country_continent_name = pc.convert_continent_code_to_continent_name(country_continent_code)
-        return country_continent_name
+    #     country_continent_name = pc.convert_continent_code_to_continent_name(country_continent_code)
+    #     return country_continent_name
 
-    pop_df['iso2'] = pop_df['iso3'].apply(iso2_from_iso3)
-    # Filter out rows where ISO2 is None
-    pop_df = pop_df[pop_df['iso2'].notna()]
-    # Add country name column to pop_df
-    pop_df['country_name'] = pop_df['iso3'].apply(lambda x: pycountry.countries.get(alpha_3=x).name if pycountry.countries.get(alpha_3=x) else None)
-    pop_df['continent_py'] = pop_df['iso2'].apply(iso2_to_continent)
+    # pop_df['iso2'] = pop_df['iso3'].apply(iso2_from_iso3)
+    # # Filter out rows where ISO2 is None
+    # pop_df = pop_df[pop_df['iso2'].notna()]
+    # # Add country name column to pop_df
+    # pop_df['country_name'] = pop_df['iso3'].apply(lambda x: pycountry.countries.get(alpha_3=x).name if pycountry.countries.get(alpha_3=x) else None)
+    # pop_df['continent_py'] = pop_df['iso2'].apply(iso2_to_continent)
 
 
     # Merge the population data with the EXIO regions based on iso2 codes
-    popul = pop_df.merge(exio_regions, on='iso2', how='left')
+    popul = pop_df.merge(exio_regions, left_on='iso3', 
+                         right_on='region ISO3', how='left')
 
-    def exio_region_from_continent(continent):
-        import pandas as pd
-        if pd.isna(continent):
-            return None
-        continent = continent.lower()
-        if 'asia' in continent:
-            return 'WA'
-        elif 'africa' in continent:
-            return 'WF'
-        elif 'europe' in continent:
-            return 'WE'
-        elif 'america' in continent:
-            return 'WL'
-        elif 'oceania' in continent:
-            return 'WA'
-        elif 'middle east' in continent:
-            return 'WM'
-        else:
-            return None
+    # def exio_region_from_continent(continent):
+    #     import pandas as pd
+    #     if pd.isna(continent):
+    #         return None
+    #     continent = continent.lower()
+    #     if 'asia' in continent:
+    #         return 'WA'
+    #     elif 'africa' in continent:
+    #         return 'WF'
+    #     elif 'europe' in continent:
+    #         return 'WE'
+    #     elif 'america' in continent:
+    #         return 'WL'
+    #     elif 'oceania' in continent:
+    #         return 'WA'
+    #     elif 'middle east' in continent:
+    #         return 'WM'
+    #     else:
+    #         return None
 
-    popul['Exiobase region code'] = popul['Exiobase region code'].fillna(
-        popul['continent_py'].apply(exio_region_from_continent)
-    )
+    # popul['Exiobase region code'] = popul['Exiobase region code'].fillna(
+    #     popul['continent_py'].apply(exio_region_from_continent)
+    # )
 
-    # if iso2 is one of these, then 'Exiobase region code'='WM' (Remove Malta)
-    # https://wits.worldbank.org/chatbot/SearchItem.aspx?RegionId=MEA 
-    popul.loc[popul['iso2'].isin(['AE', 'BH', 'DJ', 
-                                #   'DZ', 'EG', 
-                                'IR', 'IQ', 'IL', 'JO', 'KW', 'LB', 
-                                #   'LY', 'MA', 
-                                'OM', 'QA', 'SA', 'SY', 
-                                #   'TN', 
-                                'YE']),
-            'Exiobase region code'] = 'WM'
+    # # if iso2 is one of these, then 'Exiobase region code'='WM' (Remove Malta)
+    # # https://wits.worldbank.org/chatbot/SearchItem.aspx?RegionId=MEA 
+    # popul.loc[popul['iso2'].isin(['AE', 'BH', 'DJ', 
+    #                             #   'DZ', 'EG', 
+    #                             'IR', 'IQ', 'IL', 'JO', 'KW', 'LB', 
+    #                             #   'LY', 'MA', 
+    #                             'OM', 'QA', 'SA', 'SY', 
+    #                             #   'TN', 
+    #                             'YE']),
+    #         'Exiobase region code'] = 'WM'
 
     # Sum the population by Exiobase region code and year
-    popul_sum = popul.groupby(['Exiobase region code', 'Year']).agg({'Population': 'sum'}).reset_index().rename(columns={'Exiobase region code':'region'})
+    popul_sum = popul.groupby(['region', 'Year']) \
+        .agg({'Population': 'sum'}) \
+        .reset_index() 
 
     # Manually append 'Taiwan-populaton.csv' to popul_sum 
     # https://www.macrotrends.net/global-metrics/countries/twn/taiwan/population
