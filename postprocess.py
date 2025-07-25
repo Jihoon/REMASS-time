@@ -37,6 +37,12 @@ def DrawSankey(mat, title, filename):
                     sankey_values.append(val)
 
     labels = src_regs + genders + tgt_regs
+    
+    layout = go.Layout(
+        autosize=False,
+        width=800,
+        height=500
+    )
 
     fig = go.Figure(data=[go.Sankey(
         node=dict(
@@ -49,7 +55,8 @@ def DrawSankey(mat, title, filename):
             source=sources,
             target=targets,
             value=sankey_values,
-        ))])
+        ))],
+        layout=layout)
 
     fig.update_layout(title_text=title, font_size=10)
     fig.show()
